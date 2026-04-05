@@ -135,7 +135,7 @@ That is what gives internet access to the public subnets.
 cd /temps/network
 aws cloudformation validate-template --template-body file://network.yaml
 
-###### Creat the Stack
+###### Create the Stack
 
 `aws cloudformation create-stack --stack-name multi-tier-application --template-body file://network.yaml`
 

@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Parent stack for the multi-tier application infrastructure
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Name of the environment (e.g., dev, staging, prod)
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+
+  TemplateBucketName:
+    Type: String
+    Description: S3 bucket name where nested stack templates are stored
+    Default: codegenitor-cfn-templates
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/network.yaml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+
+  SecurityStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/security.yaml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        VPCId: !GetAtt NetworkStack.Outputs.VpcId
+
+Outputs:
+  VpcId:
+    Description: The ID of the VPC created in the NetworkStack
+    Value: !GetAtt NetworkStack.Outputs.VpcId
+
+  AlbSecurityGroupId:
+    Description: ALB Security Group ID from the security stack
+    Value: !GetAtt SecurityStack.Outputs.AlbSecurityGroupId
+
+  AppSecurityGroupId:
+    Description: App Security Group ID from the security stack
+    Value: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
+
+  DbSecurityGroupId:
+    Description: DB Security Group ID from the security stack
+    Value: !GetAtt SecurityStack.Outputs.DbSecurityGroupId
+
+  Ec2InstanceProfileName:
+    Description: EC2 Instance Profile Name from the security stack
+    Value: !GetAtt SecurityStack.Outputs.Ec2InstanceProfileName

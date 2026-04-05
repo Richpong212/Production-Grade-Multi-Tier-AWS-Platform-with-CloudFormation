@@ -44,6 +44,19 @@ Resources:
         PublicSubnetBId: !GetAtt NetworkStack.Outputs.PublicSubnetBId
         AlbSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbSecurityGroupId
 
+  ComputeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: AlbStack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/compute.yaml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        PrivateAppSubnetAId: !GetAtt NetworkStack.Outputs.PrivateAppSubnetAId
+        PrivateAppSubnetBId: !GetAtt NetworkStack.Outputs.PrivateAppSubnetBId
+        AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
+        TargetGroupArn: !GetAtt AlbStack.Outputs.TargetGroupArn
+        Ec2InstanceProfileName: !GetAtt SecurityStack.Outputs.Ec2InstanceProfileName
+
 Outputs:
   VpcId:
     Description: The ID of the VPC created in the NetworkStack
@@ -76,3 +89,11 @@ Outputs:
   TargetGroupArn:
     Description: Target group ARN from the ALB stack
     Value: !GetAtt AlbStack.Outputs.TargetGroupArn
+
+  AutoScalingGroupName:
+    Description: Auto Scaling Group name from the compute stack
+    Value: !GetAtt ComputeStack.Outputs.AutoScalingGroupName
+
+  LaunchTemplateId:
+    Description: Launch Template ID from the compute stack
+    Value: !GetAtt ComputeStack.Outputs.LaunchTemplateId

@@ -32,6 +32,8 @@ aws s3 cp template-structure/security/security.yaml s3://codegenitor-cfn-templat
 
 aws s3 cp template-structure/alb/alb.yaml s3://codegenitor-cfn-templates/templates/alb.yaml
 
+aws s3 cp template-structure/compute/compute.yaml s3://codegenitor-cfn-templates/templates/compute.yaml
+
 aws s3 cp main.yaml s3://codegenitor-cfn-templates/main.yaml
 ```
 

@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Application Load Balancer resources for the Multi-Tier CloudFormation template."
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: "The name of the environment (e.g., dev, prod)."
+    Default: "dev"
+
+  PrivateAppSubnetAId:
+    Type: AWS::EC2::Subnet::Id
+    Description: "The ID of the private subnet A for the application."
+
+  PrivateAppSubnetBId:
+    Type: AWS::EC2::Subnet::Id
+    Description: "Private app subnet B"
+
+  AppSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: "Security group for application instances"
+
+  TargetGroupArn:
+    Type: String
+    Description: "Target group ARN for the ALB"
+
+  Ec2InstanceProfileName:
+    Type: String
+    Description: "EC2 instance profile name"
+
+  InstanceType:
+    Type: String
+    Description: "EC2 instance type"
+    Default: t3.micro
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+      - t3.small
+
+Resources:
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${EnvironmentName}-app-launch-template"
+      LaunchTemplateData:
+        ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Name: !Ref Ec2InstanceProfileName
+        SecurityGroupIds:
+          - !Ref AppSecurityGroupId
+        MetadataOptions:
+          HttpTokens: required
+          HttpEndpoint: enabled
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            dnf update -y
+            dnf install -y nginx
+
+            cat > /usr/share/nginx/html/index.html <<EOF
+            <html>
+              <head><title>${EnvironmentName} App</title></head>
+              <body>
+                <h1>${EnvironmentName} app is running</h1>
+                <p>Hostname: $(hostname)</p>
+              </body>
+            </html>
+            EOF
+
+            systemctl enable nginx
+            systemctl start nginx
+
+  AppAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub "${EnvironmentName}-app-asg"
+      VPCZoneIdentifier:
+        - !Ref PrivateAppSubnetAId
+        - !Ref PrivateAppSubnetBId
+      MinSize: "2"
+      MaxSize: "2"
+      DesiredCapacity: "2"
+      TargetGroupARNs:
+        - !Ref TargetGroupArn
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppLaunchTemplate
+        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 120
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-app-instance"
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: !Ref EnvironmentName
+          PropagateAtLaunch: true
+        - Key: Project
+          Value: "Multi-Tier CloudFormation"
+          PropagateAtLaunch: true
+
+Outputs:
+  LaunchTemplateId:
+    Description: "Launch Template ID"
+    Value: !Ref AppLaunchTemplate
+
+  AutoScalingGroupName:
+    Description: "Auto Scaling Group name"
+    Value: !Ref AppAutoScalingGroup

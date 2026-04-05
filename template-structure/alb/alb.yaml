@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Application Load Balancer resources for the Multi-Tier CloudFormation template."
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: "The name of the environment (e.g., dev, prod)."
+    Default: "dev"
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: "The ID of the VPC where the ALB will be created."
+
+  PublicSubnetAId:
+    Type: AWS::EC2::Subnet::Id
+    Description: "Public subnet A for the ALB."
+
+  PublicSubnetBId:
+    Type: AWS::EC2::Subnet::Id
+    Description: "Public subnet B for the ALB."
+
+  AlbSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: "Security group ID for the ALB."
+
+  AppPort:
+    Type: Number
+    Description: "Port the application listens on."
+    Default: 80
+
+Resources:
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${EnvironmentName}-alb"
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups:
+        - !Ref AlbSecurityGroupId
+      Subnets:
+        - !Ref PublicSubnetAId
+        - !Ref PublicSubnetBId
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-alb"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Project
+          Value: "Multi-Tier CloudFormation"
+  AppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${EnvironmentName}-target-group"
+      Port: !Ref AppPort
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: traffic-port
+      Matcher:
+        HttpCode: "200"
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-target-group"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Project
+          Value: "Multi-Tier CloudFormation"
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AppTargetGroup
+
+Outputs:
+  LoadBalancerArn:
+    Description: "ARN of the Application Load Balancer"
+    Value: !Ref ApplicationLoadBalancer
+
+  LoadBalancerDnsName:
+    Description: "DNS name of the Application Load Balancer"
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  TargetGroupArn:
+    Description: "ARN of the ALB target group"
+    Value: !Ref AppTargetGroup
+
+  ListenerArn:
+    Description: "ARN of the HTTP listener"
+    Value: !Ref HttpListener

@@ -27,7 +27,11 @@ aws s3api put-public-access-block  --bucket codegenitor-cfn-templates --public-a
 
 ```yaml
 aws s3 cp template-structure/network/network.yaml s3://codegenitor-cfn-templates/templates/network.yaml
+
 aws s3 cp template-structure/security/security.yaml s3://codegenitor-cfn-templates/templates/security.yaml
+
+aws s3 cp template-structure/alb/alb.yaml s3://codegenitor-cfn-templates/templates/alb.yaml
+
 aws s3 cp main.yaml s3://codegenitor-cfn-templates/main.yaml
 ```
 
@@ -55,7 +59,29 @@ ParameterKey=EnvironmentName,ParameterValue=dev \
 --output text`
 
 - Delete Rollback stack
+
   ```yaml
   aws cloudformation delete-stack --stack-name multi-tier-application
   aws cloudformation wait stack-delete-complete --stack-name multi-tier-application
   ```
+
+- Diagnos if there is rollback
+
+```yaml
+aws cloudformation describe-stack-events \
+--stack-name multi-tier-application \
+--query "StackEvents[*].[Timestamp,LogicalResourceId,ResourceType,ResourceStatus,ResourceStatusReason]" \
+--output table
+```
+
+- When New resources are added we must update the resources
+
+```yaml
+aws cloudformation update-stack \
+--stack-name multi-tier-application \
+--template-body file://main.yaml \
+--parameters \
+ParameterKey=TemplateBucketName,ParameterValue=codegenitor-cfn-templates \
+ParameterKey=EnvironmentName,ParameterValue=dev \
+--capabilities CAPABILITY_IAM
+```

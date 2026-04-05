@@ -1,13 +1,16 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Security resources for the Multi-Tier CloudFormation template."
+
 Parameters:
   EnvironmentName:
     Type: String
     Description: "The name of the environment (e.g., dev, prod)."
     Default: "dev"
+
   VPCId:
     Type: AWS::EC2::VPC::Id
     Description: "The ID of the VPC where the security groups will be created."
+
   AppPort:
     Type: Number
     Description: "The port number for the application (e.g., 80 for HTTP)."
@@ -19,12 +22,11 @@ Parameters:
     Default: 5432
 
 Resources:
-  # The ALB security group allows inbound traffic on HTTP and HTTPS ports from anywhere, which is necessary for the load balancer to receive traffic from clients. It also allows all outbound traffic to ensure that the load balancer can communicate with the application servers and other resources as needed.
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: "Security group for the Application Load Balancer"
-      VpcId: !Ref VPCId #Refence the VPC ID from the parameters
+      VpcId: !Ref VPCId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -37,12 +39,9 @@ Resources:
           CidrIp: "0.0.0.0/0"
           Description: "Allow HTTPS traffic from anywhere"
       SecurityGroupEgress:
-        - IpProtocol: -1 # -1 means all protocols
-          FromPort: 0
-          ToPort: 0
+        - IpProtocol: -1
           CidrIp: "0.0.0.0/0"
           Description: "Allow all outbound traffic"
-
       Tags:
         - Key: Name
           Value: !Sub "${EnvironmentName}-alb-sg"
@@ -50,7 +49,7 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Project
           Value: "Multi-Tier CloudFormation"
-  # The application security group allows traffic only from the ALB security group, ensuring that only the load balancer can communicate with the application servers. This is a common best practice for securing application servers in a multi-tier architecture.
+
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -62,12 +61,10 @@ Resources:
           ToPort: !Ref AppPort
           SourceSecurityGroupId: !Ref AlbSecurityGroup
           Description: "Allow traffic from the ALB security group"
-
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: "0.0.0.0/0"
           Description: "Allow all outbound traffic"
-
       Tags:
         - Key: Name
           Value: !Sub "${EnvironmentName}-app-sg"
@@ -75,7 +72,7 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Project
           Value: "Multi-Tier CloudFormation"
-  # The database security group allows traffic only from the application security group, ensuring that only the application servers can communicate with the database servers. The most common best practice for securing databases in a multi-tier architecture.
+
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -87,12 +84,10 @@ Resources:
           ToPort: !Ref DbPort
           SourceSecurityGroupId: !Ref AppSecurityGroup
           Description: "Allow traffic from the application security group"
-
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: "0.0.0.0/0"
           Description: "Allow all outbound traffic"
-
       Tags:
         - Key: Name
           Value: !Sub "${EnvironmentName}-db-sg"
@@ -100,11 +95,10 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Project
           Value: "Multi-Tier CloudFormation"
-  ## Create an IAM Role for EC2 instances to allow them to communicate with SSM for management and monitoring
+
   EC2Role:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "${EnvironmentName}-ec2-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -121,42 +115,30 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Project
           Value: "Multi-Tier CloudFormation"
-  ## Ceate the instance profile for the EC2 instances to use the IAM Role
+
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      InstanceProfileName: !Sub "${EnvironmentName}-ec2-instance-profile"
       Roles:
         - !Ref EC2Role
-      # Tags are not supported for instance profiles, so we will skip them here.
 
 Outputs:
   AlbSecurityGroupId:
     Description: Security Group ID for the Application Load Balancer
     Value: !Ref AlbSecurityGroup
-    Export:
-      Name: !Sub "${EnvironmentName}-AlbSecurityGroupId"
 
   AppSecurityGroupId:
     Description: Security Group ID for the application servers
     Value: !Ref AppSecurityGroup
-    Export:
-      Name: !Sub "${EnvironmentName}-AppSecurityGroupId"
 
   DbSecurityGroupId:
     Description: Security Group ID for the database
     Value: !Ref DbSecurityGroup
-    Export:
-      Name: !Sub "${EnvironmentName}-DbSecurityGroupId"
 
   Ec2RoleArn:
     Description: ARN of the IAM Role for EC2 instances
     Value: !GetAtt EC2Role.Arn
-    Export:
-      Name: !Sub "${EnvironmentName}-Ec2RoleArn"
 
   Ec2InstanceProfileName:
     Description: Name of the EC2 instance profile
     Value: !Ref EC2InstanceProfile
-    Export:
-      Name: !Sub "${EnvironmentName}-Ec2InstanceProfileName"

@@ -45,3 +45,31 @@ jobs:
 
       - name: Validate CloudFormation template
         run: ./scripts/validate.sh
+
+      - name: Deploy CloudFormation stack to dev environment
+        run: ./scripts/deploy.sh dev
+
+  deploy-manual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{env.AWS_ACCESS_KEY_ID}}
+          aws-secret-access-key: ${{env.AWS_SECRET_ACCESS_KEY}}
+          aws-region: ${{env.AWS_REGION}}
+
+      - name: Make scripts executable
+        run: |
+          chmod +x ./scripts/deploy.sh
+          chmod +x ./scripts/validate.sh
+
+      - name: Validate CloudFormation template
+        run: ./scripts/validate.sh
+
+      - name: Deploy CloudFormation stack to selected environment
+        run: ./scripts/deploy.sh ${{ github.event.inputs.environment }}

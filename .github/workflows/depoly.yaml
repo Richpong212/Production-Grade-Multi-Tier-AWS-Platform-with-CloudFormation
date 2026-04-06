@@ -73,3 +73,25 @@ jobs:
 
       - name: Deploy CloudFormation stack to selected environment
         run: ./scripts/deploy.sh ${{ github.event.inputs.environment }}
+
+  destroy-manual:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'destroy' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Make scripts executable
+        run: |
+          chmod +x ./scripts/destroy.sh
+
+      - name: Destroy CloudFormation stack in selected environment
+        run: ./scripts/destroy.sh ${{ inputs.environment }}

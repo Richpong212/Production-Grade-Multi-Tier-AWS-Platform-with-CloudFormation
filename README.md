@@ -17,54 +17,9 @@ It creates the network, security, load balancer, compute, database, secrets, and
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    U[User] --> ALB[Application Load Balancer]
+![Multi-tier CloudFormation architecture](assets/multitier-cloudformation-architecture.png)
 
-    subgraph AWS[AWS Account]
-      subgraph VPC[VPC]
-        subgraph Public[Public Subnets]
-          ALB
-          NATA[NAT Gateway A]
-          NATB[NAT Gateway B]
-        end
-
-        subgraph PrivateApp[Private App Subnets]
-          ASG[Auto Scaling Group]
-          EC2A[EC2 App Instance A]
-          EC2B[EC2 App Instance B]
-        end
-
-        subgraph PrivateDB[Private DB Subnets]
-          RDS[RDS PostgreSQL]
-        end
-
-        SG1[ALB Security Group]
-        SG2[App Security Group]
-        SG3[DB Security Group]
-      end
-
-      S3[S3 Template Bucket]
-      SM[Secrets Manager]
-      CW[CloudWatch Alarms]
-      SNS[SNS Alerts]
-    end
-
-    ALB --> ASG
-    ASG --> EC2A
-    ASG --> EC2B
-    EC2A --> RDS
-    EC2B --> RDS
-    EC2A --> S3
-    EC2B --> S3
-    RDS --> SM
-    ALB --> CW
-    ASG --> CW
-    CW --> SNS
-    SG1 -. allows internet traffic .-> ALB
-    SG2 -. allows traffic from ALB only .-> ASG
-    SG3 -. allows traffic from app only .-> RDS
-```
+The architecture image is generated from [`../Diagrams/multitier_cloudformation_architecture.py`](/Users/kwakurich/Documents/Tutorials/Diagrams/multitier_cloudformation_architecture.py) so the diagram can be updated from code instead of maintaining Mermaid by hand.
 
 ## Stack Layout
 
@@ -86,6 +41,8 @@ This split makes the project easier to read and easier to troubleshoot when one 
 MultiTierCloudFormation/
 ├── README.md
 ├── main.yaml
+├── assets/
+│   └── multitier-cloudformation-architecture.png
 ├── parameters/
 │   ├── dev.json
 │   └── prod.json

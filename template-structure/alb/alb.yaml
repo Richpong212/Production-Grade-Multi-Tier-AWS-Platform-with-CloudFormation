@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Application Load Balancer resources for the Multi-Tier CloudFormation template."
+
 Parameters:
   EnvironmentName:
     Type: String
@@ -9,6 +10,19 @@ Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: "The ID of the VPC where the ALB will be created."
+
+  EnableHTTPS:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+    Description: "Enable HTTPS listener"
+
+  SSLCertificateArn:
+    Type: String
+    Default: ""
+    Description: "ACM certificate ARN"
 
   PublicSubnetAId:
     Type: AWS::EC2::Subnet::Id
@@ -26,6 +40,13 @@ Parameters:
     Type: Number
     Description: "Port the application listens on."
     Default: 80
+
+Conditions:
+  HTTPSFlagEnabled: !Equals [!Ref EnableHTTPS, "true"]
+  HasSSLCertificateArn: !Not [!Equals [!Ref SSLCertificateArn, ""]]
+  UseHTTPS: !And
+    - !Condition HTTPSFlagEnabled
+    - !Condition HasSSLCertificateArn
 
 Resources:
   ApplicationLoadBalancer:
@@ -46,6 +67,7 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Project
           Value: "Multi-Tier CloudFormation"
+
   AppTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -67,12 +89,34 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Project
           Value: "Multi-Tier CloudFormation"
+
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: 80
       Protocol: HTTP
+      DefaultActions:
+        - !If
+          - UseHTTPS
+          - Type: redirect
+            RedirectConfig:
+              Protocol: HTTPS
+              Port: "443"
+              StatusCode: HTTP_301
+          - Type: forward
+            TargetGroupArn: !Ref AppTargetGroup
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: UseHTTPS
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref SSLCertificateArn
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref AppTargetGroup
@@ -93,3 +137,16 @@ Outputs:
   ListenerArn:
     Description: "ARN of the HTTP listener"
     Value: !Ref HttpListener
+
+  HttpsListenerArn:
+    Condition: UseHTTPS
+    Description: "ARN of the HTTPS listener"
+    Value: !Ref HttpsListener
+
+  LoadBalancerFullName:
+    Description: "Full name of the Application Load Balancer"
+    Value: !GetAtt ApplicationLoadBalancer.LoadBalancerFullName
+
+  TargetGroupFullName:
+    Description: "Full name of the target group"
+    Value: !GetAtt AppTargetGroup.TargetGroupFullName

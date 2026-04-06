@@ -4,8 +4,8 @@ set -euo pipefail
 echo "AWS Account:"
 aws sts get-caller-identity --query Account --output text
 
-echo "AWS Region:"
-aws configure get region
+
+echo "AWS Region: ${AWS_REGION:-${AWS_DEFAULT_REGION:-not-set}}"
 
 ENVIRONMENT="${1:-dev}"
 

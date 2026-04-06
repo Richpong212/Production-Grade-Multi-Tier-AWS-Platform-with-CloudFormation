@@ -19,8 +19,6 @@ It creates the network, security, load balancer, compute, database, secrets, and
 
 ![Multi-tier CloudFormation architecture](assets/multitier-cloudformation-architecture.png)
 
-The architecture image is generated from [`../Diagrams/multitier_cloudformation_architecture.py`](/Users/kwakurich/Documents/Tutorials/Diagrams/multitier_cloudformation_architecture.py) so the diagram can be updated from code instead of maintaining Mermaid by hand.
-
 ## Stack Layout
 
 The root stack is [`main.yaml`](/Users/kwakurich/Documents/Tutorials/MultiTierCloudFormation/main.yaml). It deploys the following nested stacks in order:

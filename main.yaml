@@ -15,6 +15,31 @@ Parameters:
     Description: S3 bucket name where nested stack templates are stored
     Default: codegenitor-cfn-templates
 
+  DBName:
+    Type: String
+    Description: Initial database name
+
+  DBUsername:
+    Type: String
+    Description: Master username for the database
+
+  AlertEmail:
+    Type: String
+    Description: Email address for monitoring alerts
+
+  EnableHTTPS:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+    Description: "Whether to enable HTTPS on the ALB"
+
+  SSLCertificateArn:
+    Type: String
+    Default: ""
+    Description: "ACM certificate ARN for HTTPS"
+
 Resources:
   NetworkStack:
     Type: AWS::CloudFormation::Stack
@@ -31,6 +56,7 @@ Resources:
       Parameters:
         EnvironmentName: !Ref EnvironmentName
         VPCId: !GetAtt NetworkStack.Outputs.VpcId
+        TemplateBucketName: !Ref TemplateBucketName
 
   AlbStack:
     Type: AWS::CloudFormation::Stack
@@ -43,6 +69,8 @@ Resources:
         PublicSubnetAId: !GetAtt NetworkStack.Outputs.PublicSubnetAId
         PublicSubnetBId: !GetAtt NetworkStack.Outputs.PublicSubnetBId
         AlbSecurityGroupId: !GetAtt SecurityStack.Outputs.AlbSecurityGroupId
+        EnableHTTPS: !Ref EnableHTTPS
+        SSLCertificateArn: !Ref SSLCertificateArn
 
   ComputeStack:
     Type: AWS::CloudFormation::Stack
@@ -51,11 +79,46 @@ Resources:
       TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/compute.yaml"
       Parameters:
         EnvironmentName: !Ref EnvironmentName
+        TemplateBucketName: !Ref TemplateBucketName
         PrivateAppSubnetAId: !GetAtt NetworkStack.Outputs.PrivateAppSubnetAId
         PrivateAppSubnetBId: !GetAtt NetworkStack.Outputs.PrivateAppSubnetBId
         AppSecurityGroupId: !GetAtt SecurityStack.Outputs.AppSecurityGroupId
         TargetGroupArn: !GetAtt AlbStack.Outputs.TargetGroupArn
         Ec2InstanceProfileName: !GetAtt SecurityStack.Outputs.Ec2InstanceProfileName
+
+  SecretsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: SecurityStack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/secrets.yaml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        DBName: !Ref DBName
+        DBUsername: !Ref DBUsername
+
+  DatabaseStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: ComputeStack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/database.yaml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        PrivateDbSubnetAId: !GetAtt NetworkStack.Outputs.PrivateDbSubnetAId
+        PrivateDbSubnetBId: !GetAtt NetworkStack.Outputs.PrivateDbSubnetBId
+        DbSecurityGroupId: !GetAtt SecurityStack.Outputs.DbSecurityGroupId
+        DatabaseSecretArn: !GetAtt SecretsStack.Outputs.DatabaseSecretArn
+
+  MonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: ComputeStack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/monitoring.yaml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        LoadBalancerFullName: !GetAtt AlbStack.Outputs.LoadBalancerFullName
+        TargetGroupFullName: !GetAtt AlbStack.Outputs.TargetGroupFullName
+        AutoScalingGroupName: !GetAtt ComputeStack.Outputs.AutoScalingGroupName
+        AlertEmail: !Ref AlertEmail
 
 Outputs:
   VpcId:
@@ -97,3 +160,27 @@ Outputs:
   LaunchTemplateId:
     Description: Launch Template ID from the compute stack
     Value: !GetAtt ComputeStack.Outputs.LaunchTemplateId
+
+  DatabaseSecretArn:
+    Description: Database secret ARN from the secrets stack
+    Value: !GetAtt SecretsStack.Outputs.DatabaseSecretArn
+
+  DBInstanceEndpoint:
+    Description: Database endpoint from the database stack
+    Value: !GetAtt DatabaseStack.Outputs.DBInstanceEndpoint
+
+  DBInstancePort:
+    Description: Database port from the database stack
+    Value: !GetAtt DatabaseStack.Outputs.DBInstancePort
+
+  AlertsTopicArn:
+    Description: Alerts SNS topic ARN
+    Value: !GetAtt MonitoringStack.Outputs.AlertsTopicArn
+
+  UnHealthyHostCountAlarmName:
+    Description: ALB healthy host count alarm
+    Value: !GetAtt MonitoringStack.Outputs.UnHealthyHostCountAlarmName
+
+  HighCPUAlarmName:
+    Description: ASG high CPU alarm
+    Value: !GetAtt MonitoringStack.Outputs.HighCPUAlarmName

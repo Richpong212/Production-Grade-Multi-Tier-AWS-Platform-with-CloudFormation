@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Monitoring resources for the Multi-Tier CloudFormation template."
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: "Environment name"
+    Default: dev
+
+  LoadBalancerFullName:
+    Type: String
+    Description: "Full name of the ALB"
+
+  TargetGroupFullName:
+    Type: String
+    Description: "Full name of the target group"
+
+  AutoScalingGroupName:
+    Type: String
+    Description: "Auto Scaling Group name"
+
+  AlertEmail:
+    Type: String
+    Description: "Email address to receive alerts"
+
+Resources:
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${EnvironmentName}-alerts-topic"
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-alerts-topic"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Project
+          Value: "Multi-Tier CloudFormation"
+
+  UnHealthyHostCountAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${EnvironmentName}-alb-unhealthy-hosts"
+      AlarmDescription: "Alarm when healthy host count drops below 1"
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !Ref TargetGroupFullName
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      OKActions:
+        - !Ref AlertsTopic
+
+  HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${EnvironmentName}-asg-high-cpu"
+      AlarmDescription: "Alarm when average CPU in the ASG is too high"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 70
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      OKActions:
+        - !Ref AlertsTopic
+
+Outputs:
+  AlertsTopicArn:
+    Description: "SNS Topic ARN for alerts"
+    Value: !Ref AlertsTopic
+
+  UnHealthyHostCountAlarmName:
+    Description: "ALB healthy host count alarm name"
+    Value: !Ref UnHealthyHostCountAlarm
+
+  HighCPUAlarmName:
+    Description: "ASG CPU alarm name"
+    Value: !Ref HighCPUAlarm

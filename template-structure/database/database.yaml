@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Database resources for the Multi-Tier CloudFormation template."
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: "Environment name"
+    Default: dev
+
+  PrivateDbSubnetAId:
+    Type: AWS::EC2::Subnet::Id
+    Description: "Private DB subnet A"
+
+  PrivateDbSubnetBId:
+    Type: AWS::EC2::Subnet::Id
+    Description: "Private DB subnet B"
+
+  DbSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: "Database security group ID"
+
+  DatabaseSecretArn:
+    Type: String
+    Description: "ARN of the database secret in Secrets Manager"
+
+  DBInstanceClass:
+    Type: String
+    Description: "RDS instance size"
+    Default: db.t3.micro
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for application database"
+      SubnetIds:
+        - !Ref PrivateDbSubnetAId
+        - !Ref PrivateDbSubnetBId
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-db-subnet-group"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Project
+          Value: "Multi-Tier CloudFormation"
+
+  PostgreSQLDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub "${EnvironmentName}-postgres-db"
+      Engine: postgres
+      EngineVersion: "17.4"
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: 20
+      StorageType: gp3
+      StorageEncrypted: true
+      PubliclyAccessible: false
+      MultiAZ: false
+      DBName: !Sub "{{resolve:secretsmanager:${DatabaseSecretArn}:SecretString:dbname}}"
+      MasterUsername: !Sub "{{resolve:secretsmanager:${DatabaseSecretArn}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DatabaseSecretArn}:SecretString:password}}"
+      VPCSecurityGroups:
+        - !Ref DbSecurityGroupId
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 7
+      DeletionProtection: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-postgres-db"
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Project
+          Value: "Multi-Tier CloudFormation"
+
+Outputs:
+  DBInstanceEndpoint:
+    Description: "RDS endpoint address"
+    Value: !GetAtt PostgreSQLDatabase.Endpoint.Address
+
+  DBInstancePort:
+    Description: "RDS endpoint port"
+    Value: !GetAtt PostgreSQLDatabase.Endpoint.Port
+
+  DBSubnetGroupName:
+    Description: "DB subnet group name"
+    Value: !Ref DBSubnetGroup
+
+  DBInstanceIdentifier:
+    Description: "RDS instance identifier"
+    Value: !Ref PostgreSQLDatabase

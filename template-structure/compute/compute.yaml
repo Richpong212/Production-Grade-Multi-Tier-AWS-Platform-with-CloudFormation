@@ -1,10 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Application Load Balancer resources for the Multi-Tier CloudFormation template."
+Description: "Compute resources for the Multi-Tier CloudFormation template."
+
 Parameters:
   EnvironmentName:
     Type: String
     Description: "The name of the environment (e.g., dev, prod)."
     Default: "dev"
+
+  TemplateBucketName:
+    Type: String
+    Description: "S3 bucket name where bootstrap scripts are stored"
 
   PrivateAppSubnetAId:
     Type: AWS::EC2::Subnet::Id
@@ -39,7 +44,6 @@ Resources:
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub "${EnvironmentName}-app-launch-template"
       LaunchTemplateData:
         ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
         InstanceType: !Ref InstanceType
@@ -53,26 +57,27 @@ Resources:
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
+            set -euxo pipefail
+
             dnf update -y
-            dnf install -y nginx
+            dnf install -y awscli
 
-            cat > /usr/share/nginx/html/index.html <<EOF
-            <html>
-              <head><title>${EnvironmentName} App</title></head>
-              <body>
-                <h1>${EnvironmentName} app is running</h1>
-                <p>Hostname: $(hostname)</p>
-              </body>
-            </html>
-            EOF
-
-            systemctl enable nginx
-            systemctl start nginx
+            aws s3 cp s3://${TemplateBucketName}/scripts/userdata.sh /tmp/userdata.sh
+            chmod +x /tmp/userdata.sh
+            /tmp/userdata.sh
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub "${EnvironmentName}-app-instance"
+              - Key: Environment
+                Value: !Ref EnvironmentName
+              - Key: Project
+                Value: "Multi-Tier CloudFormation"
 
   AppAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub "${EnvironmentName}-app-asg"
       VPCZoneIdentifier:
         - !Ref PrivateAppSubnetAId
         - !Ref PrivateAppSubnetBId

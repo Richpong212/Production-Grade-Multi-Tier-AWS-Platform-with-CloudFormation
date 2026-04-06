@@ -1,0 +1,30 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "TemplateBucketName",
+    "ParameterValue": "codegenitor-cfn-templates"
+  },
+  {
+    "ParameterKey": "DBName",
+    "ParameterValue": "appdb"
+  },
+  {
+    "ParameterKey": "DBUsername",
+    "ParameterValue": "appadmin"
+  },
+  {
+    "ParameterKey": "AlertEmail",
+    "ParameterValue": "your-email@example.com"
+  },
+  {
+    "ParameterKey": "EnableHTTPS",
+    "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "SSLCertificateArn",
+    "ParameterValue": ""
+  }
+]

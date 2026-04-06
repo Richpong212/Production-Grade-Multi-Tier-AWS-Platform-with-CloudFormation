@@ -11,6 +11,10 @@ Parameters:
     Type: AWS::EC2::VPC::Id
     Description: "The ID of the VPC where the security groups will be created."
 
+  TemplateBucketName:
+    Type: String
+    Description: "S3 bucket name where bootstrap scripts are stored"
+
   AppPort:
     Type: Number
     Description: "The port number for the application (e.g., 80 for HTTP)."
@@ -108,6 +112,15 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: AllowReadUserDataScriptFromS3
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${TemplateBucketName}/scripts/userdata.sh"
       Tags:
         - Key: Name
           Value: !Sub "${EnvironmentName}-ec2-role"

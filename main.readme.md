@@ -34,6 +34,12 @@ aws s3 cp template-structure/alb/alb.yaml s3://codegenitor-cfn-templates/templat
 
 aws s3 cp template-structure/compute/compute.yaml s3://codegenitor-cfn-templates/templates/compute.yaml
 
+aws s3 cp template-structure/database/database.yaml s3://codegenitor-cfn-templates/templates/database.yaml
+
+aws s3 cp template-structure/monitoring/monitoring.yaml s3://codegenitor-cfn-templates/templates/monitoring.yaml
+
+aws s3 cp template-structure/app/userdata.sh  s3://codegenitor-cfn-templates/scripts/userdata.sh
+
 aws s3 cp main.yaml s3://codegenitor-cfn-templates/main.yaml
 ```
 
@@ -63,8 +69,8 @@ ParameterKey=EnvironmentName,ParameterValue=dev \
 - Delete Rollback stack
 
   ```yaml
-  aws cloudformation delete-stack --stack-name multi-tier-application
-  aws cloudformation wait stack-delete-complete --stack-name multi-tier-application
+  aws cloudformation delete-stack --stack-name multi-tier-dev
+  aws cloudformation wait stack-delete-complete --stack-name multi-tier-dev
   ```
 
 - Diagnos if there is rollback
@@ -86,4 +92,13 @@ aws cloudformation update-stack \
 ParameterKey=TemplateBucketName,ParameterValue=codegenitor-cfn-templates \
 ParameterKey=EnvironmentName,ParameterValue=dev \
 --capabilities CAPABILITY_IAM
+```
+
+- Get the DNS for the ALB;
+
+```yaml
+aws cloudformation describe-stacks \
+--stack-name multi-tier-dev \
+--query "Stacks[0].Outputs[?OutputKey=='LoadBalancerDnsName'].OutputValue" \
+--output text
 ```

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "AWS Account:"
+aws sts get-caller-identity --query Account --output text
+
+echo "AWS Region:"
+aws configure get region
+
 ENVIRONMENT="${1:-dev}"
 
 if [[ "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then
@@ -12,17 +18,20 @@ STACK_NAME="multi-tier-${ENVIRONMENT}"
 PARAM_FILE="parameters/${ENVIRONMENT}.json"
 TEMPLATE_BUCKET="codegenitor-cfn-templates"
 
-echo "AWS Account:"
-aws sts get-caller-identity --query Account --output text
-
-echo "AWS Region:"
-aws configure get region
-
 echo "======================================"
 echo "🚀 Deploying environment: ${ENVIRONMENT}"
 echo "📦 Stack name: ${STACK_NAME}"
 echo "📄 Parameter file: ${PARAM_FILE}"
 echo "======================================"
+
+# 🔒 Extra safety for prod
+if [[ "$ENVIRONMENT" == "prod" ]]; then
+  read -p "⚠️ You are deploying to PROD. Are you sure? (yes/no): " CONFIRM
+  if [[ "$CONFIRM" != "yes" ]]; then
+    echo "❌ Deployment cancelled."
+    exit 1
+  fi
+fi
 
 echo "🔍 Validating templates..."
 ./scripts/validate.sh
@@ -32,17 +41,11 @@ aws s3 cp template-structure/network/network.yaml "s3://${TEMPLATE_BUCKET}/templ
 aws s3 cp template-structure/security/security.yaml "s3://${TEMPLATE_BUCKET}/templates/security.yaml"
 aws s3 cp template-structure/alb/alb.yaml "s3://${TEMPLATE_BUCKET}/templates/alb.yaml"
 aws s3 cp template-structure/compute/compute.yaml "s3://${TEMPLATE_BUCKET}/templates/compute.yaml"
-aws s3 cp template-structure/secrets/secrets.yaml "s3://${TEMPLATE_BUCKET}/templates/secrets.yaml"
 aws s3 cp template-structure/database/database.yaml "s3://${TEMPLATE_BUCKET}/templates/database.yaml"
 aws s3 cp template-structure/monitoring/monitoring.yaml "s3://${TEMPLATE_BUCKET}/templates/monitoring.yaml"
-
-if [ -f template-structure/storage/storage.yaml ]; then
-  aws s3 cp template-structure/storage/storage.yaml "s3://${TEMPLATE_BUCKET}/templates/storage.yaml"
-fi
-
 aws s3 cp app/userdata.sh "s3://${TEMPLATE_BUCKET}/scripts/userdata.sh"
 aws s3 cp main.yaml "s3://${TEMPLATE_BUCKET}/main.yaml"
-
+aws s3 cp template-structure/secrets/secrets.yaml "s3://${TEMPLATE_BUCKET}/templates/secrets.yaml"
 echo "🔎 Checking if stack exists..."
 if aws cloudformation describe-stacks --stack-name "${STACK_NAME}" >/dev/null 2>&1; then
   echo "🔄 Stack exists. Updating..."
@@ -69,6 +72,7 @@ if aws cloudformation describe-stacks --stack-name "${STACK_NAME}" >/dev/null 2>
   echo "⏳ Waiting for update to complete..."
   aws cloudformation wait stack-update-complete --stack-name "${STACK_NAME}"
   echo "✅ Update complete"
+
 else
   echo "🆕 Stack does not exist. Creating..."
 

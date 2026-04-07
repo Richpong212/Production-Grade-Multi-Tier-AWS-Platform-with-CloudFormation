@@ -62,7 +62,7 @@ ParameterKey=EnvironmentName,ParameterValue=dev \
 
 - Check Status:
   `aws cloudformation describe-stacks \
---stack-name multi-tier-application \
+--stack-name multi-tier-dev \
 --query "Stacks[0].StackStatus" \
 --output text`
 

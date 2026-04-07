@@ -4,6 +4,8 @@ This project deploys a simple multi-tier application on AWS by using modular Clo
 
 It creates the network, security, load balancer, compute, database, secrets, and monitoring layers as separate nested stacks. The goal is to keep the setup easy to follow, easy to update, and close to real-world infrastructure.
 
+It also includes a GitHub Actions CI/CD workflow that validates templates on pull requests, deploys `dev` automatically from `main`, and supports manual deploy or destroy runs for `dev` and `prod`.
+
 ## What This Project Builds
 
 - A VPC with public and private subnets across two Availability Zones
@@ -14,6 +16,7 @@ It creates the network, security, load balancer, compute, database, secrets, and
 - An RDS PostgreSQL database in private subnets
 - A Secrets Manager secret for database credentials
 - CloudWatch alarms and SNS alerts
+- A GitHub Actions workflow for validation, deployment, and manual destroy
 
 ## Architecture
 
@@ -39,6 +42,10 @@ This split makes the project easier to read and easier to troubleshoot when one 
 MultiTierCloudFormation/
 ├── README.md
 ├── main.yaml
+├── .github/
+│   ├── github.readme.md
+│   └── workflows/
+│       └── depoly.yaml
 ├── assets/
 │   └── multitier-cloudformation-architecture.png
 ├── parameters/
@@ -46,6 +53,7 @@ MultiTierCloudFormation/
 │   └── prod.json
 ├── scripts/
 │   ├── deploy.sh
+│   ├── destroy.sh
 │   └── validate.sh
 ├── app/
 │   └── userdata.sh
@@ -257,6 +265,8 @@ From the project root:
 ./scripts/validate.sh
 ```
 
+In CI, GitHub Actions also runs `cfn-lint` before calling the validation script.
+
 ## Deploy
 
 Deploy `dev`:
@@ -278,6 +288,46 @@ The deploy script:
 - uploads the EC2 user data script to S3
 - creates the stack if it does not exist
 - updates the stack if it already exists
+- prints the stack outputs after completion
+
+## Destroy
+
+Destroy `dev`:
+
+```bash
+./scripts/destroy.sh dev
+```
+
+Destroy `prod`:
+
+```bash
+./scripts/destroy.sh prod
+```
+
+The destroy script resolves the stack first, deletes it, and waits until removal is complete.
+
+## CI/CD with GitHub Actions
+
+The workflow lives in [`depoly.yaml`](/Users/kwakurich/Documents/Tutorials/MultiTierCloudFormation/.github/workflows/depoly.yaml).
+
+It handles three main flows:
+
+- Pull requests to `main`: validate templates with `cfn-lint` and `./scripts/validate.sh`
+- Pushes to `main`: validate, then automatically deploy the `dev` environment
+- Manual runs with `workflow_dispatch`: deploy or destroy either `dev` or `prod`
+
+The manual workflow accepts:
+
+- `action`: `deploy` or `destroy`
+- `environment`: `dev` or `prod`
+
+### Required GitHub Secrets
+
+Add these repository secrets before using the workflow:
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
 
 ## Useful Commands
 
@@ -311,8 +361,7 @@ aws cloudformation describe-stacks \
 Delete the stack:
 
 ```bash
-aws cloudformation delete-stack --stack-name multi-tier-dev
-aws cloudformation wait stack-delete-complete --stack-name multi-tier-dev
+./scripts/destroy.sh dev
 ```
 
 ## Notes
@@ -321,6 +370,7 @@ aws cloudformation wait stack-delete-complete --stack-name multi-tier-dev
 - The application is currently a simple Nginx page installed by [`app/userdata.sh`](/Users/kwakurich/Documents/Tutorials/MultiTierCloudFormation/app/userdata.sh).
 - HTTPS support is optional by design.
 - This project creates billable AWS resources, including NAT Gateways, EC2, ALB, RDS, and Secrets Manager.
+- The CI/CD workflow currently uses long-lived AWS access keys stored as GitHub secrets.
 
 ## Why This Repo Is Useful
 
@@ -331,6 +381,7 @@ This repo is useful if you want to learn how to:
 - separate public and private workloads
 - wire EC2, ALB, RDS, Secrets Manager, and monitoring together
 - deploy infrastructure in a repeatable way with simple scripts
+- validate and deploy CloudFormation through GitHub Actions
 
 ## Future Improvements
 

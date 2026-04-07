@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+##
+
 ENVIRONMENT="${1:-}"
 
 if [[ "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then

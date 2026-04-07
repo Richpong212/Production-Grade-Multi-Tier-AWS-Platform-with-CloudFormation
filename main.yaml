@@ -50,7 +50,6 @@ Resources:
 
   SecurityStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: NetworkStack
     Properties:
       TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/security.yaml"
       Parameters:
@@ -60,7 +59,6 @@ Resources:
 
   AlbStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: SecurityStack
     Properties:
       TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/alb.yaml"
       Parameters:
@@ -74,7 +72,6 @@ Resources:
 
   ComputeStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: AlbStack
     Properties:
       TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/compute.yaml"
       Parameters:
@@ -98,7 +95,6 @@ Resources:
 
   DatabaseStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: ComputeStack
     Properties:
       TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/database.yaml"
       Parameters:
@@ -110,7 +106,6 @@ Resources:
 
   MonitoringStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: ComputeStack
     Properties:
       TemplateURL: !Sub "https://${TemplateBucketName}.s3.amazonaws.com/templates/monitoring.yaml"
       Parameters:
